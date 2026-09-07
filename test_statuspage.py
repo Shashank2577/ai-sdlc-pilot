@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -86,6 +87,24 @@ class TestRendering(unittest.TestCase):
 
     def test_state_reaches_the_row_class(self):
         self.assertIn('class="down"', S.render([S.Service("api", "down")], []))
+
+
+class TestGeneratedTimestamp(unittest.TestCase):
+    """render() is handed the time, never the clock — see statuspage.py."""
+
+    TS = datetime(2026, 1, 1, 12, 30, 0, tzinfo=timezone.utc)
+
+    def test_no_timestamp_is_shown_when_none_is_supplied(self):
+        self.assertNotIn("Page generated", S.render([S.Service("api", "ok")], []))
+
+    def test_the_supplied_timestamp_appears_on_the_page(self):
+        page = S.render([], [], self.TS)
+        self.assertIn("2026-01-01 12:30:00 UTC", page)
+
+    def test_the_label_distinguishes_generation_time_from_service_checks(self):
+        page = S.render([], [], self.TS)
+        self.assertIn("Page generated", page)
+        self.assertIn("not when any service was last checked", page)
 
 
 if __name__ == "__main__":
