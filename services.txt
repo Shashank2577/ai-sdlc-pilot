@@ -1,0 +1,6 @@
+# One service per line: <name> <state> [note]
+# state is one of: ok, degraded, down
+
+api        ok        handling traffic
+dashboards ok
+deploy     degraded  waiting on a human reviewer
