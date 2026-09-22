@@ -1,0 +1,33 @@
+name: DoD
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  dod:
+    name: dod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch the DoD check from the control plane (pinned — #246)
+        uses: actions/checkout@v4
+        with:
+          repository: Shashank2577/ai-sdlc
+          ref: 3aff6ae6bbad1fdd634f745c80d0fa56cde21a82
+          path: .dod-check-control-plane
+          sparse-checkout: |
+            scripts/dod-check.sh
+          sparse-checkout-cone-mode: false
+      - name: Run Definition of Done check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # DOD_REQUIRED_TRAILERS: Work-Item Requirement Agent-Role Harness
+        run: bash .dod-check-control-plane/scripts/dod-check.sh
