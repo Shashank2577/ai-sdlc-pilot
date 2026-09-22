@@ -19,6 +19,7 @@ import argparse
 import html
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 STATES = {"ok": "operational", "degraded": "degraded", "down": "outage"}
@@ -65,7 +66,11 @@ def parse(text: str) -> tuple[list[Service], list[str]]:
     return services, errors
 
 
-def render(services: list[Service], errors: list[str]) -> str:
+def render(services: list[Service], errors: list[str],
+           generated_at: datetime | None = None) -> str:
+    """`generated_at`, if given, must be a UTC-aware datetime — the caller's
+    clock, not this function's. It is when the page was built, which is not
+    the same moment as when any individual service was last checked."""
     e = html.escape
     rows = "\n".join(
         f'    <tr class="{s.state}"><td>{e(s.name)}</td>'
@@ -76,6 +81,12 @@ def render(services: list[Service], errors: list[str]) -> str:
         items = "\n".join(f"      <li>{e(err)}</li>" for err in errors)
         problems = (f'  <section class="errors"><h2>Could not read</h2>\n'
                     f'    <ul>\n{items}\n    </ul></section>\n')
+    generated = ""
+    if generated_at is not None:
+        stamp = e(generated_at.strftime("%Y-%m-%d %H:%M:%S UTC"))
+        generated = (f'  <p class="generated">Page generated {stamp} '
+                     f'&mdash; this is when the page was built, not when '
+                     f'any service was last checked.</p>\n')
     return f"""<!doctype html>
 <html lang="en"><meta charset="utf-8">
 <title>Service status</title>
@@ -87,9 +98,10 @@ def render(services: list[Service], errors: list[str]) -> str:
   .degraded td:nth-child(2) {{ color: #916620; }}
   .down td:nth-child(2) {{ color: #96382f; }}
   .errors {{ color: #96382f; }}
+  .generated {{ color: #555; font-size: .9rem; }}
 </style>
 <h1>Service status</h1>
-{problems}  <table>
+{generated}{problems}  <table>
 {rows}
   </table>
 </html>
@@ -103,7 +115,8 @@ def main() -> int:
     args = ap.parse_args()
 
     services, errors = parse(args.src.read_text())
-    args.dest.write_text(render(services, errors))
+    generated_at = datetime.now(timezone.utc)
+    args.dest.write_text(render(services, errors, generated_at))
     print(f"status: {len(services)} service(s), {len(errors)} unreadable line(s) "
           f"-> {args.dest}")
     # Unreadable input is a failure, not a footnote. The page still renders so
